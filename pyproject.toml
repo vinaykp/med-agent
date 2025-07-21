@@ -1,0 +1,12 @@
+[project]
+name = "med-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "google-adk>=1.6.1",
+    "litellm>=1.74.0.post1",
+    "streamlit>=1.46.1",
+    "toolbox-core>=0.3.0",
+]

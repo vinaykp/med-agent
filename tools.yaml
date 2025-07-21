@@ -1,0 +1,68 @@
+sources:
+    my-sqlite-db:
+        kind: sqlite
+        database: "/Users/vinaykp/git/med-agent/src/db/medical_agent.db"
+
+tools:
+  create_patients_by_name:
+    kind: sqlite-sql
+    source: my-sqlite-db
+    description: Create a new patient record based on name.
+    parameters:
+      - name: name
+        type: string
+        description: The name of the patient.
+      - name: data
+        type: string
+        description: Additional data for the patient.
+    statement: INSERT INTO patients (name, data) VALUES (?, ?);
+  search_patients_by_name:
+    kind: sqlite-sql
+    source: my-sqlite-db
+    description: Search for patients based on name.
+    parameters:
+      - name: name
+        type: string
+        description: The name of the patient.
+    statement: SELECT name, data FROM patients WHERE name LIKE '%' || ? || '%';
+  search_all_patients:
+    kind: sqlite-sql
+    source: my-sqlite-db
+    description: Search for all patients.
+    statement: SELECT name FROM patients;
+  save_chat:
+    kind: sqlite-sql
+    source: my-sqlite-db
+    description: Save chat history.
+    parameters:
+      - name: id
+        type: string
+        description: Unique identifier for the chat session.
+      - name: patient_name
+        type: string
+        description: Name of the patient.
+      - name: sender
+        type: string
+        description: Sender of the message (e.g., "You", "Agent").
+      - name: message
+        type: string
+        description: JSON string of chat messages.
+    statement: INSERT INTO chat_history (id, patient_name, sender, message) VALUES (?, ?, ?, ?);
+  load_chat:
+    kind: sqlite-sql
+    source: my-sqlite-db
+    description: Load chat history for a patient.
+    parameters:
+      - name: patient_name
+        type: string
+        description: Name of the patient.
+    statement: SELECT sender, message FROM chats WHERE patient_name = ? ORDER BY timestamp ASC;
+
+toolsets:
+  ehr_toolset:
+    - search_patients_by_name
+    - create_patients_by_name
+    - search_all_patients
+    - save_chat
+    - load_chat
+
