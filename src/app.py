@@ -4,6 +4,8 @@ from toolbox_core import ToolboxClient # Assuming you install the SDK: pip insta
 from ehr_ai.agent import run_query  # The agent knows how to call MCP ToolBox
 import asyncio
 import uuid
+import speech_recognition as sr
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
 
 # Session state
 if "current_patient" not in st.session_state:
@@ -16,6 +18,15 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 # -------------------------------
+class AudioProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.r = sr.Recognizer()
+        self.audio_data = sr.AudioData(b'', 44100, 2)
+
+    def recv(self, frame):
+        # Convert audio frame to AudioData
+        self.audio_data += sr.AudioData(frame.to_ndarray().tobytes(), frame.sample_rate, frame.sample_width)
+        return frame
 
 async def list_patients():
     try:
@@ -171,9 +182,36 @@ if st.session_state.patient_data:
     show_sidebar(st.session_state.patient_data)
 
 # Chat form
+if "user_input" not in st.session_state:
+    st.session_state.user_input = ""
+
 with st.form(key="chat_form", clear_on_submit=True):
-    user_input = st.text_input("You:")
+    user_input = st.text_input("You:", value=st.session_state.user_input)
     submitted = st.form_submit_button("Send")
+
+    webrtc_ctx = webrtc_streamer(
+        key="speech-to-text",
+        mode=WebRtcMode.SENDONLY,
+        audio_processor_factory=AudioProcessor,
+        media_stream_constraints={"video": False, "audio": True},
+    )
+
+    if not webrtc_ctx.state.playing:
+        if st.button("Start Talking"):
+            webrtc_ctx.state.playing = True
+    else:
+        if st.button("Stop Talking"):
+            webrtc_ctx.state.playing = False
+            if webrtc_ctx.audio_processor:
+                try:
+                    text = webrtc_ctx.audio_processor.r.recognize_google(webrtc_ctx.audio_processor.audio_data)
+                    st.session_state.user_input = text
+                except sr.UnknownValueError:
+                    st.warning("Could not understand audio")
+                except sr.RequestError as e:
+                    st.error(f"Could not request results from Google Speech Recognition service; {e}")
+
+
     async def handle_chat_submit(user_input, patient_name):
         context = build_context(st.session_state.patient_data)
         prompt = f"""Context: {context} User: {user_input}"""
