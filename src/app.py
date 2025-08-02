@@ -1,9 +1,9 @@
-import streamlit as st
 import json
-from toolbox_core import ToolboxClient # Assuming you install the SDK: pip install toolbox-core
-from ehr_ai.agent import run_query  # The agent knows how to call MCP ToolBox
-import asyncio
-import uuid
+import requests
+import streamlit as st
+
+# Assuming your FastAPI app is running on http://localhost:8000
+FASTAPI_URL = "http://localhost:8000"
 
 # Session state
 if "current_patient" not in st.session_state:
@@ -17,45 +17,41 @@ if "chat_history" not in st.session_state:
 
 # -------------------------------
 
-async def list_patients():
+def list_patients():
     try:
-        toolbox_client = ToolboxClient("http://127.0.0.1:5000")
-        search_all_patients = await toolbox_client.load_tool("search_all_patients")
-        rows = json.loads(await search_all_patients())
-        patients = [row["name"] for row in rows]
-        #print(patients)
-        return patients if patients else []
+        resp = requests.get(f"{FASTAPI_URL}/patients")
+        resp.raise_for_status()
+        return resp.json() or []
     except Exception as e:
         st.error(f"Failed to load patients: {str(e)}")
         return []
 
-async def get_patient_by_name(name):
-    #print(f"Fetching patient data for: {name}")
+
+def get_patient_by_name(name):
     try:
-        toolbox_client = ToolboxClient("http://127.0.0.1:5000")
-        search_patients_by_name = await toolbox_client.load_tool("search_patients_by_name")
-        rows = json.loads(await search_patients_by_name(name=name))
-        return rows[0]["data"] if rows else None
+        resp = requests.get(f"{FASTAPI_URL}/patient/{name}")
+        resp.raise_for_status()
+        return resp.json() if resp.json() else None
     except Exception:
         st.warning("Failed to load patient data.")
         return None
 
-async def load_chat_from_mcp(name):
+
+def load_chat_from_mcp(name):
     try:
-        toolbox_client = ToolboxClient("http://127.0.0.1:5000")
-        load_chat = await toolbox_client.load_tool("load_chat")
-        rows = json.loads(await load_chat(patient_name=name))
-        return [(row[0], row[1]) for row in rows]  # sender, message
+        resp = requests.get(f"{FASTAPI_URL}/chat/load/{name}")
+        resp.raise_for_status()
+        return [tuple(row) for row in resp.json()]
     except:
         return []
 
-async def save_chat_to_mcp(name, sender, message):
+
+def save_chat_to_mcp(name, sender, message):
     try:
-        toolbox_client = ToolboxClient("http://127.0.0.1:5000")
-        save_chat = await toolbox_client.load_tool("save_chat")
-        await save_chat(id=str(uuid.uuid4()), patient_name=name, sender=sender, message=message)
+        resp = requests.post(f"{FASTAPI_URL}/chat/save", json={"name": name, "sender": sender, "message": message})
+        resp.raise_for_status()
     except Exception as e:
-        st.error(f"Failed to save chat: {str(e)}")  
+        st.error(f"Failed to save chat: {str(e)}")
 
 def build_context(patient):
         # Ensure patient is a dict, not a JSON string
@@ -150,17 +146,17 @@ st.title("🩺 Medical Agent")
 
 # Sidebar: patient dropdown
 with st.sidebar.expander("Select Patient", expanded=True):
-    patient_list = asyncio.run(list_patients())
+    patient_list = list_patients()
     selected = st.selectbox("Choose a patient", [""] + patient_list)
     selected_name = selected if isinstance(selected, str) else getattr(selected, "name", "")
     if selected_name and selected_name.lower() != st.session_state.current_patient:
         #print(f"Loading patient: {selected_name}")
-        patient = asyncio.run(get_patient_by_name(selected_name))
+        patient = get_patient_by_name(selected_name)
         #print("Patient data::->", patient)
         if patient:
             st.session_state.current_patient = selected_name.lower()
             st.session_state.patient_data = patient
-            st.session_state.chat_history = asyncio.run(load_chat_from_mcp(selected_name))
+            st.session_state.chat_history = load_chat_from_mcp(selected_name)
             st.success(f"Loaded patient: {selected_name}")
         else:
             st.warning("Patient not found.")
@@ -174,19 +170,19 @@ if st.session_state.patient_data:
 with st.form(key="chat_form", clear_on_submit=True):
     user_input = st.text_input("You:")
     submitted = st.form_submit_button("Send")
-    async def handle_chat_submit(user_input, patient_name):
+    def handle_chat_submit(user_input, patient_name):
         context = build_context(st.session_state.patient_data)
         prompt = f"""Context: {context} User: {user_input}"""
-        #print(f"Prompt: {prompt}")
-        response = run_query(prompt)
+        response = requests.post(f"{FASTAPI_URL}/query", json={"query": prompt})
+        response = response.json().get("response", "")
         st.session_state.chat_history.append(("Agent", response))
         st.session_state.chat_history.append(("You", user_input))
-        await save_chat_to_mcp(patient_name, "Agent", response)
-        await save_chat_to_mcp(patient_name, "You", user_input)
+        save_chat_to_mcp(patient_name, "Agent", response)
+        save_chat_to_mcp(patient_name, "You", user_input)
 
     if submitted and user_input:
         patient_name = st.session_state.current_patient
-        asyncio.run(handle_chat_submit(user_input, patient_name))
+        handle_chat_submit(user_input, patient_name)
 
 # Display chat history
 for sender, message in reversed(st.session_state.chat_history):

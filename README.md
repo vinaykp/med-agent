@@ -46,7 +46,7 @@ test/
 ## Usage
 Run MCP TOOLBOX
 To run MCP_TOOLBOX for sqllite
-./toolbox --tools-file "/relative_path_to/med-agent/tools.yaml"
+./toolbox --tools-file "/Users/vinaykp/git/med-agent/tools.yaml"
 
 Run the main streamlit application:
 ```bash

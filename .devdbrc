@@ -1,0 +1,6 @@
+[
+  {
+    "type": "sqlite",
+    "path": "/Users/vinaykp/git/med-agent/src/db/db.sqlite"
+  }
+]

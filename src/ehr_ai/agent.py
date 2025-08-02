@@ -1,3 +1,5 @@
+import uuid
+import asyncio
 from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools.agent_tool import AgentTool
@@ -5,63 +7,34 @@ from google.adk.sessions import InMemorySessionService
 from google.adk.runners import Runner
 from google.genai import types
 
-from dotenv import load_dotenv
-import uuid
-import asyncio
-
-from tools.db_tools import db_tools
-
-load_dotenv()
-
-#model=LiteLlm(model="huggingface/featherless-ai/google/medgemma-4b-it"),
-#model=LiteLlm(model="ollama_chat/gemma3n:latest"), # doesnt support tools
-#LLM_MODEL=LiteLlm(model="ollama_chat/alibayram/medgemma:latest"), # doesnt support tools
-#LLM_MODEL=LiteLlm(api_base="http://localhost:11434/v1",model="openai/qwen3:1.7b",api_key="ollama")
 #LLM_MODEL="gemini-2.5-flash"
-LLM_MODEL = LiteLlm(model="nvidia_nim/meta/llama-3.3-70b-instruct")
+LLM_MODEL = LiteLlm(model="cerebras/qwen-3-32b") # qwen-3-32b or llama-3.3-70b , qwen-3-235b-a22b-thinking-2507
 
-from tools.stock_tools import get_stock_price  # Make sure this import points to your actual tool implementation
-
-stock_agent = LlmAgent(
-    name="StockAgent",
-    description="Agent for stock-related queries.",
-    model=LLM_MODEL,
-    instruction="""
-    You can answer questions about stock prices, trends, and market analysis.
-    Use the 'get-stock-price' tool to retrieve stock prices.
-    If you cannot find the information, inform the user that you are unable to retrieve it.
-    """,
-    tools=[get_stock_price]
-)
-
-patient_agent = LlmAgent(
-    name="PatientAgent",
-    description="Patient information agent.",
+medical_agent = LlmAgent(
+    name="medical_agent",
+    description="Medical information agent.",
     model=LiteLlm(model="ollama_chat/alibayram/medgemma:latest"),
     instruction="""
-    You can answer questions about patient details, medical history, medications, and more.
-    Also, you can answer summary questions about the patient's health.
-    You must use db_tools to retrieve information.
-    If you need to create a new patient record, use the 'create-patients-by-name' tool.
-    If you need to search for existing patients, use the 'search-patients-by-name' tool to retrieve patient details.
-    If you need to retrieve all patients, use the 'search-all-patients' tool.
-    When using tools, ensure you provide the necessary parameters as specified in the tool definitions.
-    If you cannot find the information, inform the user that you are unable to retrieve it.
-    """,
-    tools=list(db_tools)
+    You are expert in medical information and can provide concise answers to medical queries.
+    You can answer medical-related queries, including symptoms, treatments, and medical conditions.
+    Use patient information in context to provide accurate medical advice.
+    Don't add disclaimer to your response.
+    """
 )
 
 root_agent = LlmAgent(
     name="RootAgent",
     description="Root agent that can delegate tasks to specialized agents.",
-    model=LLM_MODEL,
+    model=LLM_MODEL, 
     instruction="""
     You can delegate tasks to specialized agents.
-    If you cannot find the information, inform the user that you are unable to retrieve it.
-    Use the 'StockAgent' for stock-related queries and 'PatientAgent' for patient and medical queries.
+    Use the 'medical_agent' for medical-related queries.
+    For general queries use web_agent search.
+    All responses should be concise and to the point.
     Ensure you use the appropriate agent based on the user's query.
     """,
-    tools=[AgentTool(agent=stock_agent), AgentTool(agent=patient_agent)]
+    tools=[AgentTool(agent=medical_agent)]
+    #sub_agents=[medical_agent]
 )
 agent = root_agent
 
@@ -82,9 +55,11 @@ session = asyncio.run(session_service.create_session(
 runner = Runner(agent=agent, session_service=session_service, app_name=APP_NAME)
 
 def run_query(query: str) -> str:
+    print(f"Running query in agent: {query}")
     content = types.Content(role='user', parts=[types.Part(text=query)])
     events = runner.run(user_id=USER_ID, session_id=SESSION_ID, new_message=content)
     # Process events to get the final response
+    print(f"Processing events to get final response... {events}" )
     for event in events:
         if event.is_final_response():
             return event.content.parts[0].text # type: ignore

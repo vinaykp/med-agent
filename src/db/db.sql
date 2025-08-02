@@ -1,19 +1,19 @@
-    CREATE TABLE IF NOT EXISTS patients (
-        name TEXT PRIMARY KEY,
-        data TEXT
-    );
+CREATE TABLE IF NOT EXISTS patients (
+    name TEXT PRIMARY KEY,
+    data TEXT
+);
 
-    CREATE TABLE IF NOT EXISTS chat_history (
-        id TEXT PRIMARY KEY,
-        patient_name TEXT,
-        sender TEXT,
-        message TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+CREATE TABLE IF NOT EXISTS chat_history (
+    id TEXT PRIMARY KEY,
+    patient_name TEXT,
+    sender TEXT,
+    message TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
 
 INSERT INTO patients (name, data)
-VALUES ('sarah smith', 
+VALUES ('Sam smith', 
 '{
         "Name": "Sarah Smith",
         "Age": 32,
@@ -64,9 +64,8 @@ VALUES ('sarah smith',
         }
     }');
 
-
 INSERT INTO patients (name, data) 
-VALUES ('John Doe', 
+VALUES ('Any Doe', 
 '{
         "Name": "John Doe",
         "Age": 45,

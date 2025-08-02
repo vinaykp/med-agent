@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"sqltools.connections": [
+			{
+				"previewLimit": 50,
+				"driver": "SQLite",
+				"name": "sqlite",
+				"database": "/Users/vinaykp/git/med_agent/src/db/db.sqlite"
+			}
+		]
+	}
+}

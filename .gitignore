@@ -11,3 +11,4 @@ wheels/
 .env
 .DS_Store
 src/db/*.db
+src/db/*.sqlite*

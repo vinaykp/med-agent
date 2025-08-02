@@ -1,7 +1,7 @@
 sources:
     my-sqlite-db:
         kind: sqlite
-        database: "/Users/vinaykp/git/med-agent/src/db/medical_agent.db"
+        database: "../git/med-agent/src/db/db.sqlite"
 
 tools:
   create_patients_by_name:
